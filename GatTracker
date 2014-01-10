@@ -1,0 +1,70 @@
+<?php
+
+/**
+ * Cross-Domain Tracking
+ *
+ * In order for two domains to share the same visitor data, such as session and visitor type, they must be able to copy or share the same cookie information.
+ * https://developers.google.com/analytics/devguides/collection/gajs/gaTrackingSite#cookies
+ *
+ * Class GatTracker
+ */
+class GatTracker
+{
+	public $googleCookiePrefix = '__utm';
+	public $googleCookie = array('a', 'b', 'c', 'x', 'z', 'v');
+	public $hashKey = 'k';
+
+	/**
+	 * @return string like __utma=<value>&__utmb=<value> etc, plus secret hash: &__utmk=<value>
+	 */
+	public function getGaTrackingQuery()
+	{
+		$result = array();
+		foreach ($this->googleCookie as $cookieName) {
+			$fullCookieName = $this->googleCookiePrefix . $cookieName;
+			if (isset($_COOKIE[$fullCookieName])) {
+				$result[$fullCookieName] = $_COOKIE[$fullCookieName];
+			} else {
+				$result[$fullCookieName] = '-';
+			}
+		}
+		$result[$this->googleCookiePrefix . $this->hashKey] = $this->generateHash(implode('',$result));
+		if ($result) {
+			return http_build_query($result);
+		} else {
+			return '';
+		}
+	}
+
+	/**
+	 * Generate hash for input string. This is a global method.
+	 *
+	 * @param string $input to generate hash value on.
+	 * @return int $hash value of input string. If input string is undefined, or empty, return hash value of 1.
+	 */
+	protected function generateHash($input)
+	{
+		$hash = 1; // hash buffer
+		$leftMost7 = null; // left-most 7 bits
+		$pos = null; // character position in string
+		$current = null; // current character in string
+
+		// if input is undef or empty, hash value is 1
+		if ($input != null && $input != "") {
+			$hash = 0;
+
+			// hash function
+			for ($pos = strlen($input) - 1; $pos >= 0; $pos--) {
+				$current = ord($input[$pos]);
+				$hash = (($hash << 6) & 0xfffffff) + $current + ($current << 14);
+				$leftMost7 = $hash & 0xfe00000;
+
+				if ($leftMost7 != 0) {
+					$hash ^= $leftMost7 >> 21;
+				}
+			}
+		}
+
+		return $hash;
+	}
+}
